@@ -1,23 +1,23 @@
 # Facebook Social Analyzer
 
-An advanced Facebook Ads Analytics platform with AI-powered features for comprehensive marketing intelligence.
+An advanced Facebook Ads Analytics platform with AI-powered features for comprehensive marketing intelligence and robust data analysis.
 
 ## 🚀 Features
 
-- **AI-Powered Analytics**: Natural language querying with Google Gemini
-- **Real-time Data Fetching**: Direct integration with Facebook Marketing API
-- **Advanced Visualizations**: Interactive charts and dashboards
-- **Predictive Analytics**: Performance forecasting and trend analysis
-- **Anomaly Detection**: Identify unusual patterns in your ad performance
-- **Clustering Analysis**: Group similar campaigns for better optimization
-- **ROI Optimization**: AI-powered recommendations for better returns
-- **Seasonal Pattern Detection**: Optimize for seasonal trends
+- **🤖 AI-Powered Analytics**: Natural language querying with Google Gemini
+- **📊 Robust Data Handling**: Dynamic column detection and fallback logic
+- **🔄 Real-time Data Fetching**: Direct integration with Facebook Marketing API
+- **📈 Advanced Visualizations**: Interactive charts and dashboards
+- **🔍 Smart Query Engine**: Intelligent analysis of campaign structure and metadata
+- **📱 User-Friendly Interface**: Intuitive Streamlit dashboard with error handling
+- **💾 Database Storage**: SQLite/PostgreSQL support with automatic schema management
+- **🎯 Performance Insights**: Campaign, ad set, and ad analysis without requiring insights data
 
 ## 📋 Prerequisites
 
 - Python 3.8 or higher
 - Facebook Ads Account with API access
-- Google Gemini API key
+- Google Gemini API key (optional, for AI features)
 
 ## 🛠️ Installation
 
@@ -51,91 +51,134 @@ An advanced Facebook Ads Analytics platform with AI-powered features for compreh
    - `ads_management`
    - `business_management`
 
-### Google Gemini API Setup
+### Google Gemini API Setup (Optional)
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create a new API key
 3. Add the key to your `.env` file
+4. AI features will work without this key, but with limited functionality
 
 ## 🚀 Usage
 
-### Standard Dashboard
+### Main Dashboard
 ```bash
 streamlit run app.py
 ```
 
-### Advanced Dashboard
-```bash
-streamlit run advanced_dashboard.py
-```
-
-### API Server
-```bash
-python api.py
-```
+The dashboard will be available at `http://localhost:8501`
 
 ## 📊 Dashboard Features
 
-### Standard Dashboard
-- Campaign overview and metrics
-- AI-powered natural language queries
-- Interactive charts and visualizations
-- Raw data exploration
+### 🎯 **Overview Tab**
+- **Dynamic Metrics**: Automatically detects available columns and displays relevant metrics
+- **Smart Charts**: Visualizations that adapt to your data structure
+- **Column Detection**: Works with any column naming convention from Facebook API
+- **Fallback Logic**: Graceful handling when expected data is missing
 
-### Advanced Dashboard
-- Predictive analytics and forecasting
-- Anomaly detection and alerts
-- Clustering analysis
-- ROI optimization recommendations
-- Seasonal pattern analysis
-- Advanced AI insights
+### 🧠 **AI Query Tab**
+- **Natural Language Queries**: Ask questions in plain English
+- **Smart Analysis**: Understands your data structure and provides relevant insights
+- **Example Queries**: Pre-built examples for common analysis tasks
+- **Data Preview**: See available data for context
+- **Error Handling**: Clear feedback when AI features aren't available
 
-## 🔍 API Endpoints
+### 📋 **Raw Data Tab**
+- **Complete Data View**: Explore all fetched data in organized tables
+- **Campaigns Data**: Campaign metadata, status, objectives, budgets
+- **Ad Sets Data**: Targeting, optimization goals, configurations
+- **Ads Data**: Ad status, campaign relationships, creatives
 
-The platform includes a REST API for programmatic access:
+## 🔍 AI Query Examples
 
-- `GET /api/campaigns` - Get all campaigns
-- `GET /api/adsets` - Get all ad sets
-- `GET /api/ads` - Get all ads
-- `POST /api/query` - AI-powered query endpoint
+### **Campaign Analysis**
+- "How many campaigns do I have?"
+- "Show me active campaigns"
+- "Campaign status overview"
+- "Campaign objectives breakdown"
+
+### **Ad Analysis**
+- "How many ads do I have?"
+- "Show me active ads"
+- "Ad distribution by campaign"
+- "Ad status breakdown"
+
+### **Budget & Performance**
+- "Budget analysis"
+- "Campaign performance analysis"
+- "Recent campaigns and ads"
+- "Active vs paused campaigns"
+
+### **Ad Set Analysis**
+- "Ad set optimization goals"
+- "Show me active ad sets"
+- "Targeting overview"
 
 ## 🏗️ Architecture
 
 ```
-├── app.py                 # Standard dashboard
-├── advanced_dashboard.py  # Advanced AI dashboard
-├── api.py                # REST API server
-├── database.py           # Database management
-├── facebook_api.py       # Facebook API integration
-├── gemini_query.py       # AI query engine
-├── utils.py              # Utility functions
-└── requirements.txt      # Dependencies
+├── app.py                 # Main Streamlit dashboard
+├── database.py           # Database management with SQLite/PostgreSQL
+├── facebook_api.py       # Facebook Marketing API integration
+├── gemini_query.py       # Advanced AI query engine
+├── utils.py              # Utility functions and helpers
+├── requirements.txt      # Python dependencies
+└── README.md            # This file
 ```
 
 ## 🤖 AI Capabilities
 
-- **Natural Language Processing**: Ask questions in plain English
-- **Predictive Analytics**: Forecast future performance
-- **Anomaly Detection**: Identify unusual patterns
-- **Clustering Analysis**: Group similar campaigns
-- **Trend Forecasting**: Predict market trends
-- **ROI Optimization**: Maximize return on ad spend
-- **Seasonal Analysis**: Detect seasonal patterns
+### **Smart Query Engine**
+- **Dynamic Schema Understanding**: Automatically adapts to your data structure
+- **Fallback Queries**: Works even when insights data is unavailable
+- **Natural Language Processing**: Understands complex queries in plain English
+- **Contextual Analysis**: Provides insights based on available data
 
-## 📈 Key Metrics
+### **Data Analysis Features**
+- **Campaign Structure Analysis**: Comprehensive overview of campaign hierarchy
+- **Status Distribution**: Active vs paused analysis across campaigns, ads, and ad sets
+- **Budget Analysis**: Campaign budget insights and allocation
+- **Objective Analysis**: Campaign objective distribution and trends
+- **Recent Activity**: Latest campaign and ad creation analysis
 
-- Campaign performance analysis
+## 📈 Key Metrics & Insights
+
+### **Available Without Performance Data**
+- Campaign counts and status distribution
+- Ad set optimization goals and targeting
+- Ad distribution across campaigns
+- Budget allocation and spending patterns
+- Campaign objective analysis
+- Recent activity and trends
+
+### **Enhanced with Performance Data** (when available)
 - Cost per acquisition (CPA)
 - Return on ad spend (ROAS)
 - Click-through rate (CTR)
 - Conversion rate optimization
-- Budget allocation insights
+- Performance-based recommendations
 
-## 🔒 Security
+## 🔒 Security & Reliability
 
-- Environment variable configuration
-- Secure API token handling
-- Database connection security
-- Input validation and sanitization
+- **Environment Variable Configuration**: Secure API token handling
+- **Database Connection Security**: Protected database access
+- **Input Validation**: Sanitized user inputs
+- **Error Handling**: Graceful degradation when services are unavailable
+- **Data Privacy**: Local data storage with optional cloud deployment
+
+## 🚀 Recent Improvements
+
+### **v2.0 - Enhanced Data Handling**
+- ✅ **Robust Column Detection**: Works with any Facebook API column naming
+- ✅ **Dynamic Dashboard**: Adapts to available data structure
+- ✅ **Enhanced AI Queries**: Smart analysis of campaign metadata
+- ✅ **Better Error Handling**: Clear feedback and graceful fallbacks
+- ✅ **Improved User Experience**: Intuitive interface with helpful guidance
+
+### **Key Features Added**
+- Dynamic column detection and fallback logic
+- Enhanced AI query engine with schema understanding
+- Better error handling and user feedback
+- Improved data visualization and analysis
+- Comprehensive campaign structure analysis
 
 ## 🤝 Contributing
 
@@ -165,4 +208,4 @@ Stay updated with the latest features and improvements by:
 
 ---
 
-**Built with ❤️ using Streamlit, Plotly, and Google Gemini AI**
+**Built with ❤️ using Streamlit, Plotly, Google Gemini AI, and robust data handling**

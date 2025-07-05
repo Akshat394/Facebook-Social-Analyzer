@@ -61,7 +61,14 @@ def main():
     try:
         db_manager = DatabaseManager()
         facebook_api = FacebookAPI()
-        gemini_engine = GeminiQueryEngine(db_manager)
+        
+        # Initialize Gemini engine with error handling
+        try:
+            gemini_engine = GeminiQueryEngine(db_manager)
+        except Exception as gemini_error:
+            st.warning(f"Gemini AI features may not work: {str(gemini_error)}")
+            gemini_engine = None
+            
     except Exception as e:
         st.error(f"Failed to initialize components: {str(e)}")
         st.stop()
@@ -189,64 +196,139 @@ def show_overview_tab():
     st.header("📊 Campaign Overview")
 
     if st.session_state.ads_df is not None and not st.session_state.ads_df.empty:
-        # Prepare data with proper numeric conversion
-        insights_df = prepare_numeric_data(st.session_state.ads_df, 
-                                         ['spend', 'impressions', 'clicks'])
-
+        # Check which columns exist and prepare data accordingly
+        available_columns = st.session_state.ads_df.columns.tolist()
+        numeric_columns = []
+        
+        # Check for common column names
+        spend_col = None
+        impressions_col = None
+        clicks_col = None
+        campaign_col = None
+        
+        # Look for spend-related columns
+        for col in available_columns:
+            if 'spend' in col.lower():
+                spend_col = col
+                numeric_columns.append(col)
+            elif 'impression' in col.lower():
+                impressions_col = col
+                numeric_columns.append(col)
+            elif 'click' in col.lower():
+                clicks_col = col
+                numeric_columns.append(col)
+            elif 'campaign' in col.lower() and 'name' in col.lower():
+                campaign_col = col
+        
+        # Prepare numeric data for available columns
+        insights_df = prepare_numeric_data(st.session_state.ads_df, numeric_columns)
+        
+        # Display metrics for available columns
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            total_spend = insights_df['spend'].sum()
-            st.metric("Total Spend", format_currency(total_spend))
+            if spend_col:
+                total_spend = insights_df[spend_col].sum()
+                st.metric("Total Spend", format_currency(total_spend))
+            else:
+                st.metric("Total Spend", "N/A")
         
         with col2:
-            total_impressions = insights_df['impressions'].sum()
-            st.metric("Total Impressions", f"{total_impressions:,}")
+            if impressions_col:
+                total_impressions = insights_df[impressions_col].sum()
+                st.metric("Total Impressions", f"{total_impressions:,}")
+            else:
+                st.metric("Total Impressions", "N/A")
         
         with col3:
-            total_clicks = insights_df['clicks'].sum()
-            st.metric("Total Clicks", f"{total_clicks:,}")
+            if clicks_col:
+                total_clicks = insights_df[clicks_col].sum()
+                st.metric("Total Clicks", f"{total_clicks:,}")
+            else:
+                st.metric("Total Clicks", "N/A")
         
         with col4:
-            avg_ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
-            st.metric("Average CTR", format_percentage(avg_ctr))
-
-        # Charts
-        col1, col2 = st.columns(2)
+            if impressions_col and clicks_col:
+                total_impressions = insights_df[impressions_col].sum()
+                total_clicks = insights_df[clicks_col].sum()
+                avg_ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
+                st.metric("Average CTR", format_percentage(avg_ctr))
+            else:
+                st.metric("Average CTR", "N/A")
         
-        with col1:
-            # Spend by campaign
-            if 'campaign_name' in insights_df.columns:
-                spend_by_campaign = insights_df.groupby('campaign_name')['spend'].sum().sort_values(ascending=False)
-                fig_spend = px.bar(
-                    x=spend_by_campaign.values,
-                    y=spend_by_campaign.index,
-                    orientation='h',
-                    title="Spend by Campaign",
-                    labels={'x': 'Spend ($)', 'y': 'Campaign'}
-                )
-                st.plotly_chart(fig_spend, use_container_width=True)
+        # Display charts if we have the necessary data
+        if spend_col or campaign_col:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if spend_col and campaign_col:
+                    spend_by_campaign = insights_df.groupby(campaign_col)[spend_col].sum().sort_values(ascending=False)
+                    fig_spend = px.bar(
+                        x=spend_by_campaign.values,
+                        y=spend_by_campaign.index,
+                        orientation='h',
+                        title="Spend by Campaign",
+                        labels={'x': 'Spend ($)', 'y': 'Campaign'}
+                    )
+                    st.plotly_chart(fig_spend, use_container_width=True)
+                else:
+                    st.info("Spend and campaign data not available for visualization")
+            
+            with col2:
+                if clicks_col and impressions_col and campaign_col:
+                    ctr_by_campaign = insights_df.groupby(campaign_col).apply(
+                        lambda x: (x[clicks_col].sum() / x[impressions_col].sum() * 100) if x[impressions_col].sum() > 0 else 0
+                    ).sort_values(ascending=False)
+                    fig_ctr = px.bar(
+                        x=ctr_by_campaign.values,
+                        y=ctr_by_campaign.index,
+                        orientation='h',
+                        title="CTR by Campaign",
+                        labels={'x': 'CTR (%)', 'y': 'Campaign'}
+                    )
+                    st.plotly_chart(fig_ctr, use_container_width=True)
+                else:
+                    st.info("CTR data not available for visualization")
         
-        with col2:
-            # CTR by campaign
-            if 'campaign_name' in insights_df.columns:
-                ctr_by_campaign = insights_df.groupby('campaign_name').apply(
-                    lambda x: (x['clicks'].sum() / x['impressions'].sum() * 100) if x['impressions'].sum() > 0 else 0
-                ).sort_values(ascending=False)
-                fig_ctr = px.bar(
-                    x=ctr_by_campaign.values,
-                    y=ctr_by_campaign.index,
-                    orientation='h',
-                    title="CTR by Campaign",
-                    labels={'x': 'CTR (%)', 'y': 'Campaign'}
-                )
-                st.plotly_chart(fig_ctr, use_container_width=True)
+        # Show available columns for debugging
+        with st.expander("🔍 Available Data Columns"):
+            st.write("Columns in ads data:")
+            st.write(available_columns)
+            if st.session_state.campaigns_df is not None:
+                st.write("Columns in campaigns data:")
+                st.write(st.session_state.campaigns_df.columns.tolist())
 
 def show_ai_query_tab(gemini_engine):
     st.header("🧠 AI-Powered Query")
     
+    if gemini_engine is None:
+        st.error("❌ Gemini AI engine is not available. Please check your GEMINI_API_KEY environment variable.")
+        st.info("You can still view your data in the Overview and Raw Data tabs.")
+        return
+    
+    st.write("Ask questions about your Facebook Ads data in natural language.")
+    
+    # Example queries
+    st.subheader("💡 Example Queries:")
+    example_queries = [
+        "How many campaigns do I have?",
+        "Show me active campaigns",
+        "Campaign status overview",
+        "Budget analysis",
+        "Recent campaigns and ads"
+    ]
+    
+    # Create columns for example queries
+    cols = st.columns(len(example_queries))
+    for i, query in enumerate(example_queries):
+        with cols[i]:
+            if st.button(query, key=f"example_{i}"):
+                st.session_state.user_query = query
+    
+    # User input
     user_query = st.text_area(
-        "Ask a question about your Facebook Ads data:",
+        "Ask your question:",
+        value=st.session_state.get('user_query', ''),
         placeholder="e.g., 'Which campaigns have the highest ROI?', 'Show me spending trends over time'",
         height=100
     )
@@ -255,13 +337,29 @@ def show_ai_query_tab(gemini_engine):
         if user_query.strip():
             with st.spinner("Analyzing your data..."):
                 try:
-                    result = gemini_engine.query(user_query)
-                    st.success("Analysis complete!")
-                    st.markdown(result)
+                    # Check if we have data to analyze
+                    if st.session_state.ads_df is not None and not st.session_state.ads_df.empty:
+                        result = gemini_engine.query(user_query)
+                        st.success("Analysis complete!")
+                        st.markdown(result)
+                    else:
+                        st.error("No data available for analysis. Please fetch data first.")
                 except Exception as e:
                     st.error(f"Error during analysis: {str(e)}")
+                    st.info("Make sure your Gemini API key is properly configured.")
         else:
             st.warning("Please enter a question to analyze.")
+    
+    # Show data preview for context
+    if st.session_state.ads_df is not None and not st.session_state.ads_df.empty:
+        with st.expander("📋 Data Preview for AI Analysis"):
+            st.write("Available data for AI analysis:")
+            st.dataframe(st.session_state.ads_df.head())
+            
+            # Show column information
+            st.write("**Available columns:**")
+            for col in st.session_state.ads_df.columns:
+                st.write(f"- {col}")
 
 def show_raw_data_tab():
     st.header("📋 Raw Data")

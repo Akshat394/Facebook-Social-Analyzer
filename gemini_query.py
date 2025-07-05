@@ -23,6 +23,67 @@ warnings.filterwarnings('ignore')
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class GeminiQueryEngine:
+    """Simple wrapper for the Advanced Gemini Query Engine"""
+    
+    def __init__(self, database_manager):
+        self.advanced_engine = AdvancedGeminiQueryEngine(database_manager)
+    
+    def query(self, user_query: str) -> str:
+        """Simple query method that returns a formatted response"""
+        try:
+            # Use the advanced engine to process the query
+            result = self.advanced_engine.process_query(user_query)
+            
+            if result.get('error'):
+                return f"❌ Error: {result['error']}"
+            
+            # Format the response
+            response = []
+            
+            # Add insights
+            if result.get('insights'):
+                response.append("## 📊 Analysis Results")
+                response.append(result['insights'])
+            
+            # Add recommendations
+            if result.get('recommendations'):
+                response.append("\n## 💡 Recommendations")
+                for rec in result['recommendations'][:3]:  # Show top 3
+                    response.append(f"- **{rec['title']}**: {rec['description']}")
+            
+            # Add data summary
+            if result.get('data') is not None and not result['data'].empty:
+                response.append(f"\n## 📋 Data Summary")
+                response.append(f"Found {len(result['data'])} records matching your query.")
+                
+                # Show sample data
+                if len(result['data']) > 0:
+                    response.append("\n**Sample data:**")
+                    sample_data = result['data'].head(5).to_string()
+                    response.append(f"```\n{sample_data}\n```")
+            
+            # If no structured response, try to provide a basic analysis
+            if not response:
+                if result.get('data') is not None:
+                    if not result['data'].empty:
+                        response.append("## 📊 Query Results")
+                        response.append(f"Found {len(result['data'])} records.")
+                        response.append("\n**Data Preview:**")
+                        response.append(f"```\n{result['data'].head(10).to_string()}\n```")
+                    else:
+                        response.append("## 📊 Query Results")
+                        response.append("No data found matching your query.")
+                else:
+                    response.append("## 📊 Query Results")
+                    response.append("Unable to process your query. Please try a different question.")
+            
+            return "\n".join(response) if response else "No results found for your query."
+            
+        except Exception as e:
+            logger.error(f"Error in simple query: {e}")
+            return f"❌ Error processing query: {str(e)}"
+
 class AdvancedGeminiQueryEngine:
     def __init__(self, database_manager):
         self.db_manager = database_manager
@@ -669,6 +730,60 @@ class AdvancedGeminiQueryEngine:
     def process_query(self, user_query: str) -> Dict[str, Any]:
         """Backward compatibility method"""
         return self.process_advanced_query(user_query)
+    
+    def query(self, user_query: str) -> str:
+        """Simple query method for backward compatibility"""
+        try:
+            result = self.process_advanced_query(user_query)
+            
+            if result.get('error'):
+                return f"❌ Error: {result['error']}"
+            
+            # Format the response
+            response = []
+            
+            # Add insights
+            if result.get('insights'):
+                response.append("## 📊 Analysis Results")
+                response.append(result['insights'])
+            
+            # Add recommendations
+            if result.get('recommendations'):
+                response.append("\n## 💡 Recommendations")
+                for rec in result['recommendations'][:3]:  # Show top 3
+                    response.append(f"- **{rec['title']}**: {rec['description']}")
+            
+            # Add data summary
+            if result.get('data') is not None and not result['data'].empty:
+                response.append(f"\n## 📋 Data Summary")
+                response.append(f"Found {len(result['data'])} records matching your query.")
+                
+                # Show sample data
+                if len(result['data']) > 0:
+                    response.append("\n**Sample data:**")
+                    sample_data = result['data'].head(5).to_string()
+                    response.append(f"```\n{sample_data}\n```")
+            
+            # If no structured response, try to provide a basic analysis
+            if not response:
+                if result.get('data') is not None:
+                    if not result['data'].empty:
+                        response.append("## 📊 Query Results")
+                        response.append(f"Found {len(result['data'])} records.")
+                        response.append("\n**Data Preview:**")
+                        response.append(f"```\n{result['data'].head(10).to_string()}\n```")
+                    else:
+                        response.append("## 📊 Query Results")
+                        response.append("No data found matching your query.")
+                else:
+                    response.append("## 📊 Query Results")
+                    response.append("Unable to process your query. Please try a different question.")
+            
+            return "\n".join(response) if response else "No results found for your query."
+            
+        except Exception as e:
+            logger.error(f"Error in simple query: {e}")
+            return f"❌ Error processing query: {str(e)}"
 
     def _enhance_query(self, user_query: str) -> str:
         """Original query enhancement method"""
@@ -788,6 +903,11 @@ class AdvancedGeminiQueryEngine:
     def _generate_advanced_sql_query(self, user_query: str) -> Optional[str]:
         """Generate advanced SQL query with enhanced context"""
         try:
+            # First, try to generate a simple query for basic tables
+            simple_query = self._generate_simple_query(user_query)
+            if simple_query:
+                return simple_query
+            
             schema_context = self._create_schema_context()
             query_patterns_context = self._create_patterns_context()
 
@@ -854,9 +974,10 @@ class AdvancedGeminiQueryEngine:
             - DO NOT use PostgreSQL functions like TO_DATE, NOW(), INTERVAL
             
             CRITICAL: Column Availability:
-            - ad_insights table has: ctr, cpc, cpm, cpp, conversions, conversion_values
-            - campaign_insights table has: spend, impressions, clicks, reach, conversions (NO ctr, cpc, cpm, cpp)
-            - Use ad_insights for detailed metrics, campaign_insights for campaign-level aggregations
+            - ad_insights table has: ctr, cpc, cpm, cpp, conversions, conversion_values (may be empty)
+            - campaign_insights table has: spend, impressions, clicks, reach, conversions (may be empty)
+            - If insights tables are empty, use basic tables (ads, campaigns, adsets) for structural analysis
+            - For performance queries when insights unavailable, focus on status, budget, and metadata analysis
 
             User Query: {user_query}
 
@@ -872,6 +993,284 @@ class AdvancedGeminiQueryEngine:
         except Exception as e:
             logger.error(f"Error generating SQL query: {e}")
             return None
+
+    def _generate_simple_query(self, user_query: str) -> Optional[str]:
+        """Generate simple queries for basic table analysis when insights are not available"""
+        query_lower = user_query.lower()
+        
+        # Enhanced pattern matching for meaningful analysis
+        if any(word in query_lower for word in ['campaign', 'campaigns']):
+            if 'count' in query_lower or 'how many' in query_lower:
+                return """
+                SELECT 
+                    COUNT(*) as total_campaigns,
+                    SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_campaigns,
+                    SUM(CASE WHEN status = 'PAUSED' THEN 1 ELSE 0 END) as paused_campaigns
+                FROM campaigns;
+                """
+            elif 'active' in query_lower or 'running' in query_lower:
+                return """
+                SELECT 
+                    c.id, 
+                    c.name, 
+                    c.status, 
+                    c.objective,
+                    c.daily_budget,
+                    c.lifetime_budget,
+                    COUNT(a.id) as ad_count,
+                    COUNT(ads.id) as adset_count
+                FROM campaigns c
+                LEFT JOIN ads a ON c.id = a.campaign_id
+                LEFT JOIN adsets ads ON c.id = ads.campaign_id
+                WHERE c.status = 'ACTIVE'
+                GROUP BY c.id, c.name, c.status, c.objective, c.daily_budget, c.lifetime_budget
+                ORDER BY ad_count DESC;
+                """
+            elif 'status' in query_lower:
+                return """
+                SELECT 
+                    status, 
+                    COUNT(*) as count,
+                    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM campaigns), 2) as percentage
+                FROM campaigns 
+                GROUP BY status 
+                ORDER BY count DESC;
+                """
+            elif 'objective' in query_lower:
+                return """
+                SELECT 
+                    objective, 
+                    COUNT(*) as count,
+                    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM campaigns), 2) as percentage
+                FROM campaigns 
+                WHERE objective IS NOT NULL
+                GROUP BY objective 
+                ORDER BY count DESC;
+                """
+            elif 'budget' in query_lower:
+                return """
+                SELECT 
+                    name,
+                    daily_budget,
+                    lifetime_budget,
+                    budget_remaining,
+                    status,
+                    objective
+                FROM campaigns 
+                WHERE daily_budget IS NOT NULL OR lifetime_budget IS NOT NULL
+                ORDER BY COALESCE(daily_budget, lifetime_budget) DESC;
+                """
+            else:
+                return """
+                SELECT 
+                    c.id, 
+                    c.name, 
+                    c.status, 
+                    c.objective,
+                    c.created_time,
+                    COUNT(a.id) as ad_count,
+                    COUNT(ads.id) as adset_count
+                FROM campaigns c
+                LEFT JOIN ads a ON c.id = a.campaign_id
+                LEFT JOIN adsets ads ON c.id = ads.campaign_id
+                GROUP BY c.id, c.name, c.status, c.objective, c.created_time
+                ORDER BY c.created_time DESC 
+                LIMIT 10;
+                """
+        
+        elif any(word in query_lower for word in ['ad', 'ads']):
+            if 'count' in query_lower or 'how many' in query_lower:
+                return """
+                SELECT 
+                    COUNT(*) as total_ads,
+                    SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_ads,
+                    SUM(CASE WHEN status = 'PAUSED' THEN 1 ELSE 0 END) as paused_ads
+                FROM ads;
+                """
+            elif 'active' in query_lower or 'running' in query_lower:
+                return """
+                SELECT 
+                    a.id, 
+                    a.name, 
+                    a.status, 
+                    c.name as campaign_name,
+                    a.created_time
+                FROM ads a
+                LEFT JOIN campaigns c ON a.campaign_id = c.id
+                WHERE a.status = 'ACTIVE'
+                ORDER BY a.created_time DESC;
+                """
+            elif 'status' in query_lower:
+                return """
+                SELECT 
+                    status, 
+                    COUNT(*) as count,
+                    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM ads), 2) as percentage
+                FROM ads 
+                GROUP BY status 
+                ORDER BY count DESC;
+                """
+            elif 'campaign' in query_lower:
+                return """
+                SELECT 
+                    c.name as campaign_name,
+                    COUNT(a.id) as ad_count,
+                    SUM(CASE WHEN a.status = 'ACTIVE' THEN 1 ELSE 0 END) as active_ads,
+                    SUM(CASE WHEN a.status = 'PAUSED' THEN 1 ELSE 0 END) as paused_ads
+                FROM campaigns c
+                LEFT JOIN ads a ON c.id = a.campaign_id
+                GROUP BY c.id, c.name
+                ORDER BY ad_count DESC;
+                """
+            else:
+                return """
+                SELECT 
+                    a.id, 
+                    a.name, 
+                    a.status, 
+                    c.name as campaign_name,
+                    a.created_time
+                FROM ads a
+                LEFT JOIN campaigns c ON a.campaign_id = c.id
+                ORDER BY a.created_time DESC 
+                LIMIT 10;
+                """
+        
+        elif any(word in query_lower for word in ['adset', 'adsets', 'ad set']):
+            if 'count' in query_lower or 'how many' in query_lower:
+                return """
+                SELECT 
+                    COUNT(*) as total_adsets,
+                    SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_adsets,
+                    SUM(CASE WHEN status = 'PAUSED' THEN 1 ELSE 0 END) as paused_adsets
+                FROM adsets;
+                """
+            elif 'active' in query_lower or 'running' in query_lower:
+                return """
+                SELECT 
+                    ads.id, 
+                    ads.name, 
+                    ads.status, 
+                    c.name as campaign_name,
+                    ads.optimization_goal,
+                    ads.daily_budget,
+                    ads.created_time
+                FROM adsets ads
+                LEFT JOIN campaigns c ON ads.campaign_id = c.id
+                WHERE ads.status = 'ACTIVE'
+                ORDER BY ads.created_time DESC;
+                """
+            elif 'optimization' in query_lower or 'goal' in query_lower:
+                return """
+                SELECT 
+                    optimization_goal, 
+                    COUNT(*) as count,
+                    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM adsets), 2) as percentage
+                FROM adsets 
+                WHERE optimization_goal IS NOT NULL
+                GROUP BY optimization_goal 
+                ORDER BY count DESC;
+                """
+            else:
+                return """
+                SELECT 
+                    ads.id, 
+                    ads.name, 
+                    ads.status, 
+                    c.name as campaign_name,
+                    ads.optimization_goal,
+                    ads.created_time
+                FROM adsets ads
+                LEFT JOIN campaigns c ON ads.campaign_id = c.id
+                ORDER BY ads.created_time DESC 
+                LIMIT 10;
+                """
+        
+        elif 'budget' in query_lower:
+            return """
+            SELECT 
+                c.name as campaign_name,
+                c.daily_budget,
+                c.lifetime_budget,
+                c.budget_remaining,
+                c.status,
+                c.objective,
+                COUNT(a.id) as ad_count,
+                COUNT(ads.id) as adset_count
+            FROM campaigns c
+            LEFT JOIN ads a ON c.id = a.campaign_id
+            LEFT JOIN adsets ads ON c.id = ads.campaign_id
+            WHERE c.daily_budget IS NOT NULL OR c.lifetime_budget IS NOT NULL
+            GROUP BY c.id, c.name, c.daily_budget, c.lifetime_budget, c.budget_remaining, c.status, c.objective
+            ORDER BY COALESCE(c.daily_budget, c.lifetime_budget) DESC;
+            """
+        
+        elif 'recent' in query_lower or 'latest' in query_lower:
+            return """
+            SELECT 
+                'campaigns' as type, 
+                id, 
+                name, 
+                status,
+                created_time 
+            FROM campaigns 
+            WHERE created_time >= datetime('now', '-7 days')
+            UNION ALL 
+            SELECT 
+                'ads' as type, 
+                id, 
+                name, 
+                status,
+                created_time 
+            FROM ads 
+            WHERE created_time >= datetime('now', '-7 days')
+            ORDER BY created_time DESC;
+            """
+        
+        elif 'overview' in query_lower or 'summary' in query_lower:
+            return """
+            SELECT 
+                'campaigns' as table_name, 
+                COUNT(*) as total_count,
+                SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN status = 'PAUSED' THEN 1 ELSE 0 END) as paused_count
+            FROM campaigns 
+            UNION ALL 
+            SELECT 
+                'ads' as table_name, 
+                COUNT(*) as total_count,
+                SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN status = 'PAUSED' THEN 1 ELSE 0 END) as paused_count
+            FROM ads 
+            UNION ALL 
+            SELECT 
+                'adsets' as table_name, 
+                COUNT(*) as total_count,
+                SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN status = 'PAUSED' THEN 1 ELSE 0 END) as paused_count
+            FROM adsets;
+            """
+        
+        elif 'performance' in query_lower or 'analysis' in query_lower:
+            return """
+            SELECT 
+                c.name as campaign_name,
+                c.status as campaign_status,
+                c.objective,
+                COUNT(DISTINCT ads.id) as adset_count,
+                COUNT(a.id) as ad_count,
+                SUM(CASE WHEN a.status = 'ACTIVE' THEN 1 ELSE 0 END) as active_ads,
+                SUM(CASE WHEN ads.status = 'ACTIVE' THEN 1 ELSE 0 END) as active_adsets,
+                c.daily_budget,
+                c.lifetime_budget
+            FROM campaigns c
+            LEFT JOIN adsets ads ON c.id = ads.campaign_id
+            LEFT JOIN ads a ON c.id = a.campaign_id
+            GROUP BY c.id, c.name, c.status, c.objective, c.daily_budget, c.lifetime_budget
+            ORDER BY ad_count DESC;
+            """
+        
+        return None
 
     def _create_patterns_context(self) -> str:
         """Create context for common query patterns"""
@@ -889,11 +1288,18 @@ class AdvancedGeminiQueryEngine:
         return context
 
     def _create_schema_context(self) -> str:
-        context = ""
+        context = "Database Schema Information:\n"
         for table_name, table_info in self.schema_info.items():
             context += f"\nTable: {table_info['table']}\n"
             context += f"Description: {table_info['description']}\n"
             context += f"Columns: {', '.join(table_info['columns'])}\n"
+        
+        context += "\nIMPORTANT NOTES:\n"
+        context += "- The insights tables (ad_insights, campaign_insights) may be empty if insights data hasn't been fetched.\n"
+        context += "- For queries about performance metrics (spend, impressions, clicks, ctr, etc.), use the basic tables.\n"
+        context += "- Focus on structural analysis: campaign counts, ad status, budget information.\n"
+        context += "- Use JOINs to connect campaigns, adsets, and ads tables for comprehensive analysis.\n"
+        
         return context
 
     def _clean_sql_response(self, response: str) -> str:
@@ -986,21 +1392,20 @@ class AdvancedGeminiQueryEngine:
         }
 
     def get_suggested_queries(self) -> List[str]:
-        """Get suggested queries for users"""
+        """Get suggested queries for users based on available data"""
         return [
-            "Show top performing campaigns",
-            "CTR analysis",
-            "High spend, low performance",
-            "Recent ad performance",
-            "Compare campaign performance",
-            "Active campaigns overview",
-            "Monthly spend trends",
-            "Optimization opportunities",
-            "Predict next week performance",
-            "Detect anomalies",
-            "ROI optimization",
-            "Seasonal patterns"
+            "How many campaigns do I have?",
+            "Show me active campaigns",
+            "Campaign status overview",
+            "Budget analysis",
+            "Recent campaigns and ads",
+            "Campaign performance analysis",
+            "Ad set optimization goals",
+            "Campaign objectives breakdown",
+            "Active vs paused campaigns",
+            "Campaign structure analysis",
+            "Ad distribution by campaign",
+            "Targeting and optimization overview"
         ]
 
-# Backward compatibility alias
-GeminiQueryEngine = AdvancedGeminiQueryEngine
+# Note: GeminiQueryEngine class is defined above as a wrapper for AdvancedGeminiQueryEngine
