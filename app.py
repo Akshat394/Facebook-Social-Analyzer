@@ -121,28 +121,28 @@ def main():
         show_analytics_dashboard(gemini_engine)
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour
-def fetch_facebook_data(account_id, facebook_api, db_manager):
+def fetch_facebook_data(account_id, _facebook_api, _db_manager):
     with st.spinner("Fetching data from Facebook Marketing API..."):
         progress_bar = st.progress(0)
         status_text = st.empty()
 
         try:
             status_text.text("Fetching campaigns...")
-            campaigns = facebook_api.fetch_campaigns(account_id)
+            campaigns = _facebook_api.fetch_campaigns(account_id)
             progress_bar.progress(25)
 
             status_text.text("Fetching ad sets...")
-            adsets = facebook_api.fetch_adsets(account_id)
+            adsets = _facebook_api.fetch_adsets(account_id)
             progress_bar.progress(50)
 
             status_text.text("Fetching ads...")
-            ads = facebook_api.fetch_ads(account_id)
+            ads = _facebook_api.fetch_ads(account_id)
             progress_bar.progress(75)
 
             status_text.text("Storing data in database...")
-            db_manager.store_campaigns(campaigns)
-            db_manager.store_adsets(adsets)
-            db_manager.store_ads(ads)
+            _db_manager.store_campaigns(campaigns)
+            _db_manager.store_adsets(adsets)
+            _db_manager.store_ads(ads)
 
             st.session_state.campaigns_df = pd.DataFrame(campaigns)
             st.session_state.adsets_df = pd.DataFrame(adsets)
@@ -161,12 +161,12 @@ def fetch_facebook_data(account_id, facebook_api, db_manager):
             status_text.empty()
 
 @st.cache_data(ttl=1800)  # Cache for 30 minutes
-def load_existing_data(db_manager):
+def load_existing_data(_db_manager):
     try:
         with st.spinner("Loading data from database..."):
-            campaigns = db_manager.get_campaigns()
-            adsets = db_manager.get_adsets()
-            ads = db_manager.get_ads()
+            campaigns = _db_manager.get_campaigns()
+            adsets = _db_manager.get_adsets()
+            ads = _db_manager.get_ads()
 
             if campaigns:
                 st.session_state.campaigns_df = pd.DataFrame(campaigns)
