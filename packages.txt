@@ -1,2 +1,0 @@
-# System packages for Streamlit deployment
-# No additional system packages required for this project 
