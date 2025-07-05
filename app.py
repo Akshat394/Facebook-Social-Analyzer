@@ -120,6 +120,7 @@ def main():
     else:
         show_analytics_dashboard(gemini_engine)
 
+@st.cache_data(ttl=3600)  # Cache for 1 hour
 def fetch_facebook_data(account_id, facebook_api, db_manager):
     with st.spinner("Fetching data from Facebook Marketing API..."):
         progress_bar = st.progress(0)
@@ -159,6 +160,7 @@ def fetch_facebook_data(account_id, facebook_api, db_manager):
             progress_bar.empty()
             status_text.empty()
 
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def load_existing_data(db_manager):
     try:
         with st.spinner("Loading data from database..."):
