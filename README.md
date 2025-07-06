@@ -115,13 +115,13 @@ The dashboard will be available at `http://localhost:8501`
 ## 🏗️ Architecture
 
 ```
-├── app.py                 # Main Streamlit dashboard
+├── app.py                # Main Streamlit dashboard
 ├── database.py           # Database management with SQLite/PostgreSQL
 ├── facebook_api.py       # Facebook Marketing API integration
 ├── gemini_query.py       # Advanced AI query engine
 ├── utils.py              # Utility functions and helpers
 ├── requirements.txt      # Python dependencies
-└── README.md            # This file
+└── README.md             # This file
 ```
 
 ## 🤖 AI Capabilities
