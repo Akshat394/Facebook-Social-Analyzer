@@ -2,6 +2,8 @@
 
 An advanced Facebook Ads Analytics platform with AI-powered features for comprehensive marketing intelligence and robust data analysis.
 
+**LIve Deployed Link:** [Facebook Social Analyser](https://facebook-social-analyzer-v1.streamlit.app/)
+
 ## 🚀 Features
 
 - **🤖 AI-Powered Analytics**: Natural language querying with Google Gemini
